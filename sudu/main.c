@@ -354,12 +354,38 @@ void print_board_with_color(int board[][9], int cursor_row, int cursor_col) {
     }
 }
 
-// ========== 修改：鍵盤互動填數 ==========
+// ========== 新增：只顯示正確答案的盤面 ==========
+void print_board_answer(int board[][9]) {
+    cls();
+    printf("\n +-------+-------+-------+\n");
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            if (j % 3 == 0) printf(" | ");
+            else printf(" ");
+            setColor(LIGHTBLUE);
+            printf("%d", board[i][j]);
+            resetColor();
+        }
+        printf(" |\n");
+        if (i % 3 == 2) printf(" +-------+-------+-------+\n");
+    }
+}
+
+void debug_print_board(int board[9][9]) {
+    printf("\n[DEBUG] 盤面內容：\n");
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            printf("%d ", board[i][j]);
+        }
+        printf("\n");
+    }
+}
+
 int handle_input_arrow() {
     int num = 0;
     while (1) {
         print_board_with_color(player_board, cursor_row, cursor_col);
-        printf("\n使用方向鍵移動，1-9填數，0清除，q離開\n");
+        printf("\n使用方向鍵移動，1-9填數，0清除，q離開，h提示一格，a看答案\n");
         printf("目前游標：(%d,%d)\n", cursor_row+1, cursor_col+1);
         int ch = getkey();
         if (ch == KEY_UP) {
@@ -405,11 +431,32 @@ int handle_input_arrow() {
             printf("遊戲結束！\n");
             return -1;
         } else if (ch == 'a' || ch == 'A') {
-            // 新增：查看完整答案
+            // 查看完整答案
             printf("\n=== 數獨答案 ===\n");
-            print_board_with_color(answer_board, -1, -1);
-            printf("(按任意鍵繼續)\n");
+            debug_print_board(answer_board); // debug 輸出
+            print_board_answer(answer_board);
+            printf("(請按任意鍵繼續)\n");
             getkey();
+        } else if (ch == 'h' || ch == 'H') {
+            // 新增：提示功能，自動幫玩家填一格正確答案
+            int found = 0;
+            for (int i = 0; i < 9 && !found; i++) {
+                for (int j = 0; j < 9 && !found; j++) {
+                    if (original_board[i][j] == 0 && player_board[i][j] != answer_board[i][j]) {
+                        player_board[i][j] = answer_board[i][j];
+                        print_board_with_color(player_board, i, j);
+                        printf("提示：第 %d 行第 %d 列已自動填入 %d\n", i+1, j+1, answer_board[i][j]);
+                        printf("(請按任意鍵繼續)\n");
+                        getkey();
+                        found = 1;
+                    }
+                }
+            }
+            if (!found) {
+                printf("目前無可提示的格子！\n");
+                printf("(請按任意鍵繼續)\n");
+                getkey();
+            }
         }
         if (error_count >= 5) return -1;
         if (is_complete(player_board)) return 2;
