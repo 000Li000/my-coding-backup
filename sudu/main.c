@@ -305,24 +305,6 @@ int handle_input() {
     }
 }
 
-// ========== 題目選擇 ==========
-int select_problem() {
-    int choice;
-    printf("請選擇題號 (1~%d)，或輸入 0 隨機選題：", PROBLEM_COUNT);
-    scanf("%d", &choice);
-    if (choice == 0) {
-        srand((unsigned int)time(NULL));
-        int rnd = rand() % PROBLEM_COUNT;
-        printf("隨機選擇第 %d 題\n", rnd + 1);
-        return rnd;
-    }
-    if (choice < 1 || choice > PROBLEM_COUNT) {
-        printf("輸入錯誤，自動選擇第 1 題\n");
-        return 0;
-    }
-    return choice - 1;
-}
-
 // ========== 新增：目前游標位置 ==========
 int cursor_row = 0, cursor_col = 0;
 
@@ -389,7 +371,7 @@ int handle_input_arrow() {
     int num = 0;
     while (1) {
         print_board_with_color(player_board, cursor_row, cursor_col);
-        printf("\n使用方向鍵移動，1-9填數，0清除，q離開，h提示一格，a看答案\n");
+        printf("\n使用方向鍵移動，1-9填數，0清除，h提示一格，a看答案，r讀取盤面，q離開\n");
         printf("目前游標：(%d,%d)\n", cursor_row+1, cursor_col+1);
         int ch = getkey();
         if (ch == KEY_UP) {
@@ -459,8 +441,26 @@ int handle_input_arrow() {
             if (!found) {
                 printf("目前無可提示的格子！\n");
                 printf("(請按任意鍵繼續)\n");
-                getkey();
+            getkey();
             }
+        } else if (ch == 'r' || ch == 'R') {
+            int idx;
+            printf("請輸入要讀取的題號（從0開始）：");
+            scanf("%d", &idx);
+            int ok = read_from_binary_file(player_board, "sudoku.dat", idx);
+            if (ok) {
+                // 同步 original_board 內容，讓不可改格正確
+                for (int i = 0; i < 9; i++)
+                    for (int j = 0; j < 9; j++) {
+                        original_board[i][j] = player_board[i][j];
+                        answer_board[i][j] = player_board[i][j];
+                    }
+                solve(answer_board, 0); // 重新計算正確答案
+                printf("已載入盤面並重新計算答案，請按任意鍵繼續。\n");
+            } else {
+                printf("讀取失敗，請按任意鍵繼續。\n");
+            }
+            getkey();
         }
         if (error_count >= 5) return -1;
         if (is_complete(player_board)) return 2;
@@ -481,9 +481,29 @@ int is_complete(int board[9][9]) {
 // ========== 修改：遊戲主函式 ==========
 void play_game() {
     printf("=== 數獨遊戲 ===\n");
-    printf("規則：方向鍵移動，1-9填數，0清除，q離開\n");
-    int problem_index = select_problem();
-    init_game(problem_index);
+    printf("請選擇：\n1. 從二進位檔案讀取盤面\n2. 結束\n> ");
+    int mode = 0;
+    scanf("%d", &mode);
+    if (mode != 1) {
+        printf("已結束\n");
+        return;
+    }
+    int idx;
+    printf("請輸入要讀取的題號（從0開始）：");
+    scanf("%d", &idx);
+    int ok = read_from_binary_file(player_board, "sudoku.dat", idx);
+    if (!ok) {
+        printf("讀取失敗，遊戲結束。\n");
+        return;
+    }
+    // 同步 original_board 與 answer_board
+    for (int i = 0; i < 9; i++)
+        for (int j = 0; j < 9; j++) {
+            original_board[i][j] = player_board[i][j];
+            answer_board[i][j] = player_board[i][j];
+        }
+    solve(answer_board, 0);
+    error_count = 0;
     cursor_row = 0; cursor_col = 0;
     while (1) {
         int result = handle_input_arrow();
